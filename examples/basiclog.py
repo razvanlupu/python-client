@@ -37,6 +37,8 @@ import cflib.crtp
 
 import logging
 import time
+import json
+
 from threading import Timer
 
 import cflib.crtp
@@ -45,6 +47,7 @@ from cflib.crazyflie import Crazyflie
 
 # Only output errors from the logging framework
 logging.basicConfig(level=logging.ERROR)
+
 
 class LoggingExample:
     """
@@ -81,33 +84,113 @@ class LoggingExample:
         self._lg_stab.add_variable("stabilizer.roll", "float")
         self._lg_stab.add_variable("stabilizer.pitch", "float")
         self._lg_stab.add_variable("stabilizer.yaw", "float")
+	self._lg_stab.add_variable("stabilizer.thrust", "float")
+	
+	self.logAccel = LogConfig(name="Accel",period_in_ms=10)
+        self.logAccel.add_variable("acc.x", "float")
+        self.logAccel.add_variable("acc.y", "float")
+        self.logAccel.add_variable("acc.z", "float")
+	
+	self.logBaro = LogConfig(name="Baro",period_in_ms=10)	
+	self.logBaro.add_variable("baro.aslLong", "float")
+	
+	self.logGyro = LogConfig(name="Gyro",period_in_ms=10)
+        self.logGyro.add_variable("gyro.x", "float")
+        self.logGyro.add_variable("gyro.y", "float")
+        self.logGyro.add_variable("gyro.z", "float")
 
         # Adding the configuration cannot be done until a Crazyflie is
         # connected, since we need to check that the variables we
         # would like to log are in the TOC.
+	self._cf.log.add_config(self.logAccel)
         self._cf.log.add_config(self._lg_stab)
+	self._cf.log.add_config(self.logBaro)
+	self._cf.log.add_config(self.logGyro)
+
         if self._lg_stab.valid:
             # This callback will receive the data
-            self._lg_stab.data_received_cb.add_callback(self._stab_log_data)
+            self._lg_stab.data_received_cb.add_callback(self._stab_log_data_stab)
             # This callback will be called on errors
             self._lg_stab.error_cb.add_callback(self._stab_log_error)
             # Start the logging
             self._lg_stab.start()
         else:
             print("Could not add logconfig since some variables are not in TOC")
+	
+	if self.logAccel.valid:
+            # This callback will receive the data
+            self.logAccel.data_received_cb.add_callback(self._stab_log_data_acc)
+            # This callback will be called on errors
+            self.logAccel.error_cb.add_callback(self._stab_log_error)
+            # Start the logging
+            self.logAccel.start()
+        else:
+            print("Could not add logconfig since some variables are not in TOC")
 
-        # Start a timer to disconnect in 10s
-        t = Timer(5, self._cf.close_link)
+	if self.logBaro.valid:
+            # This callback will receive the data
+            self.logBaro.data_received_cb.add_callback(self._stab_log_data_baro)
+            # This callback will be called on errors
+            self.logBaro.error_cb.add_callback(self._stab_log_error)
+            # Start the logging
+            self.logBaro.start()
+        else:
+            print("Could not add logconfig since some variables are not in TOC")
+
+	if self.logGyro.valid:
+            # This callback will receive the data
+            self.logGyro.data_received_cb.add_callback(self._stab_log_data_gyro)
+            # This callback will be called on errors
+            self.logGyro.error_cb.add_callback(self._stab_log_error)
+            # Start the logging
+            self.logGyro.start()
+        else:
+            print("Could not add logconfig since some variables are not in TOC")
+        
+	# Start a timer to disconnect in 10s
+        t = Timer(15, self._cf.close_link)
         t.start()
 
     def _stab_log_error(self, logconf, msg):
         """Callback from the log API when an error occurs"""
         print "Error when logging %s: %s" % (logconf.name, msg)
 
-    def _stab_log_data(self, timestamp, data, logconf):
+    def _stab_log_data_baro(self, timestamp, data, logconf):
         """Callback froma the log API when data arrives"""
-        print "[%d][%s]: %s" % (timestamp, logconf.name, data)
+	filename = "data_baro.json";
+        json_data = open(filename, 'a')
+	print json.loads(data)
+        writable = "[%d][%s]: %s\n" % (timestamp,logconf.name,data)
+	json_data.write(writable)	
+	json_data.close()
 
+    def _stab_log_data_acc(self, timestamp, data, logconf):
+        """Callback froma the log API when data arrives"""
+	filename = "data_acc.json";
+        json_data = open(filename, 'a')
+	writable = "[%d][%s]: %s\n" % (timestamp, logconf.name,data)
+	json_data.write(writable)	
+	json_data.close()
+    
+    def _stab_log_data_gyro(self, timestamp, data, logconf):
+        """Callback froma the log API when data arrives"""
+	filename = "data_gyro.json";
+        json_data = open(filename, 'a')
+        writable = "[%d][%s]: %s\n" % (timestamp, logconf.name,data)
+	json_data.write(writable)	
+	json_data.close()
+
+    def _stab_log_data_stab(self, timestamp, data, logconf):
+        """Callback froma the log API when data arrives"""
+	filename = "data_stab.json";
+        json_data = open(filename, 'a')
+        writable = "[%d][%s]: %s\n" % (timestamp, logconf.name, data)
+	json_data.write(writable)	
+	json_data.close()
+
+
+	
+        
     def _connection_failed(self, link_uri, msg):
         """Callback when connection initial connection fails (i.e no Crazyflie
         at the speficied address)"""
