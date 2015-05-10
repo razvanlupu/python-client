@@ -90,6 +90,11 @@ class LoggingExample:
         self.logAccel.add_variable("acc.x", "float")
         self.logAccel.add_variable("acc.y", "float")
         self.logAccel.add_variable("acc.z", "float")
+
+        self.logMag = LogConfig(name="Mag",period_in_ms=10)
+        self.logMag.add_variable("mag.x", "float")
+        self.logMag.add_variable("mag.y", "float")
+        self.logMag.add_variable("mag.z", "float")
 	
 	self.logBaro = LogConfig(name="Baro",period_in_ms=10)	
 	self.logBaro.add_variable("baro.aslLong", "float")
@@ -103,6 +108,7 @@ class LoggingExample:
         # connected, since we need to check that the variables we
         # would like to log are in the TOC.
 	self._cf.log.add_config(self.logAccel)
+	self._cf.log.add_config(self.logMag)
         self._cf.log.add_config(self._lg_stab)
 	self._cf.log.add_config(self.logBaro)
 	self._cf.log.add_config(self.logGyro)
@@ -146,6 +152,16 @@ class LoggingExample:
             self.logGyro.start()
         else:
             print("Could not add logconfig since some variables are not in TOC")
+
+	if self.logMag.valid:
+            # This callback will receive the data
+            self.logMag.data_received_cb.add_callback(self._stab_log_data_mag)
+            # This callback will be called on errors
+            self.logMag.error_cb.add_callback(self._stab_log_error)
+            # Start the logging
+            self.logMag.start()
+        else:
+            print("Could not add logconfig since some variables are not in TOC")
         
 	# Start a timer to disconnect in 10s
         t = Timer(15, self._cf.close_link)
@@ -167,6 +183,14 @@ class LoggingExample:
     def _stab_log_data_acc(self, timestamp, data, logconf):
         """Callback froma the log API when data arrives"""
 	filename = "data_acc.json";
+        json_data = open(filename, 'a')
+	writable = "[%d][%s]: %s\n" % (timestamp, logconf.name,data)
+	json_data.write(writable)	
+	json_data.close()
+    
+    def _stab_log_data_mag(self, timestamp, data, logconf):
+        """Callback froma the log API when data arrives"""
+	filename = "data_mag.json";
         json_data = open(filename, 'a')
 	writable = "[%d][%s]: %s\n" % (timestamp, logconf.name,data)
 	json_data.write(writable)	
