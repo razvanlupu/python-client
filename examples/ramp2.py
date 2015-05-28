@@ -67,16 +67,21 @@ class MotorRampExample:
 	self.gyro_y = data["gyro.y"]
 	self.gyro_z = data["gyro.z"]
 	self.timest = timestamp
-
-
+	
+    def _stab_log_data_baro(self, timestamp, data, logconf):
+        self.baro   = data["baro.aslLong"]
 
     def _ramp_motors(self):
 	self.logGyro = LogConfig(name="Gyro",period_in_ms=10)
         self.logGyro.add_variable("gyro.x", "float")
         self.logGyro.add_variable("gyro.y", "float")
         self.logGyro.add_variable("gyro.z", "float")
+
+	self.logBaro = LogConfig(name="Baro",period_in_ms=10)	
+	self.logBaro.add_variable("baro.aslLong", "float")
         
 	self._cf.log.add_config(self.logGyro)
+	self._cf.log.add_config(self.logBaro)
 
 	if self.logGyro.valid:
             # This callback will receive the data
@@ -88,9 +93,19 @@ class MotorRampExample:
         else:
             print("Could not add logconfig since some variables are not in TOC")
 
+	if self.logBaro.valid:
+            # This callback will receive the data
+            self.logBaro.data_received_cb.add_callback(self._stab_log_data_baro)
+            # This callback will be called on errors
+            self.logBaro.error_cb.add_callback(self._stab_log_error)
+            # Start the logging
+            self.logBaro.start()
+        else:
+            print("Could not add logconfig since some variables are not in TOC")
+
 	thrust_mult = 1
         thrust_step = 100
-        thrust = 54000
+        thrust = 45000
 	count = 0
         pitch = 0
         roll = 0
@@ -99,17 +114,29 @@ class MotorRampExample:
 	y = 0
 	z = 0
         t_init = 0
-        
-	while thrust >= 1000:
-	    roll  = x - 0.1*x
-	    pitch = y - 0.1*y	
-            self._cf.commander.send_setpoint(roll, pitch, yawrate, thrust)
-            time.sleep(0.1)
+        altit   = 0
+	raise_time = 6
+
+	while thrust >= 0:
+	    roll    = -0.2*x  
+	    pitch   = -0.2*y 
+	    yawrate = -0.2*z		    
+   	    	
+            if count == raise_time:
+	    	altit = self.baro	
 	    
-	    
-	    if count == 5:
-		self._cf.param.set_value("flightmode.althold", "True")
-	    
+	    if count <= raise_time:	
+            	self._cf.commander.send_setpoint(roll, pitch, yawrate, thrust)
+            	time.sleep(0.1)
+	    else:
+		#self._cf.param.set_value("flightmode.althold", "True")
+		if self.baro: 
+			thrust = thrust - 2500*(self.baro - altit)
+		else:  
+			thrust = 30000
+		self._cf.commander.send_setpoint(roll, pitch, yawrate, thrust)            			
+	        time.sleep(0.1)
+	    			    
 	    if count == 0:
     	    	t_init = self.timest
             else:	 
@@ -119,7 +146,7 @@ class MotorRampExample:
 	    
 	    	t_init = self.timest
 
-	    	print [t_init,"---",x, y, z]	
+	    	print [t_init,"---",x, y, z, "baro:",self.baro,"altit:",altit,"thrust:",thrust]	
 	    
 	    count = count + 1
         self._cf.commander.send_setpoint(0, 0, 0, 0)
