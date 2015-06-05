@@ -150,9 +150,10 @@ class MotorRampExample:
 		# r,p,y vor fi 0 pe primele 2 esantioane	
 		self._cf.commander.send_setpoint(roll, pitch, yawrate, thrust)  
 	    else:
-		if self.baro: 
+		if self.baro:
+			if abs(altit - self.baro) > 0.2: # histerezis wanna be
 			# diferenta este de ordinul zecimalelor si trebuie amplificata 
-			thrust = thrust - 1500*(self.baro - altit) 
+				thrust = thrust + 1500*(altit - self.baro) 
 			
 			# limitam thrust-ul la 10k respectiv 53k pentru siguranta                        
 			if thrust < 10000:
