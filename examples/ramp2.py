@@ -58,7 +58,7 @@ class MotorRampExample:
         """Callback when the Crazyflie is disconnected (called in all cases)"""
         print "Disconnected from %s" % link_uri
     
-    ########## Definire callback-uri logging ##########	 	   
+    ########## Achizitie date ##########	 	   
     def _stab_log_error(self, logconf, msg):
         """Callback from the log API when an error occurs"""
         print "Error when logging %s: %s" % (logconf.name, msg)
@@ -77,7 +77,7 @@ class MotorRampExample:
     
     def _ramp_motors(self):
 
-	########## Achizitie date senzori ########################################	
+	########## Configurare callbacks si variabile de log ######################	
 	self.logGyro = LogConfig(name="Gyro",period_in_ms=10)
         self.logGyro.add_variable("gyro.x", "float")
         self.logGyro.add_variable("gyro.y", "float")
@@ -122,14 +122,17 @@ class MotorRampExample:
         t_init = 0
         altit  = 0
 	raise_time = 10 # nr de esantione in care se trimite doar comanda thrust initial
-	Baro = list()   # aici se salveaza ultimele primele <raise_time> valori ale senzorului baro
+	Baro = list()   # aici se salveaza primele <raise_time> valori ale senzorului baro
 	
 	
 	# bucla principala de control
 	while True: 
 	    roll    = -0.3*x    #
 	    pitch   = -0.3*y 	# corectii proportionale 
-	    yawrate = -0.3*z	#	    
+	    yawrate = -0.3*z	#
+	    
+	    # comanda
+	    print ["roll:",roll,"pitch:",pitch,"yaw:",yawrate]
    	    	
             if clock == raise_time:
 	    	# altit e valoarea la care dorim sa mentinem CF
@@ -144,7 +147,8 @@ class MotorRampExample:
 	    if clock <= raise_time:
 		if not(self.baro == None):
 			Baro.append(self.baro)
-		self._cf.commander.send_setpoint(roll, pitch, yawrate, thrust) # r,p,y vor fi 0 
+		# r,p,y vor fi 0 pe primele 2 esantioane	
+		self._cf.commander.send_setpoint(roll, pitch, yawrate, thrust)  
 	    else:
 		if self.baro: 
 			# diferenta este de ordinul zecimalelor si trebuie amplificata 
@@ -163,7 +167,7 @@ class MotorRampExample:
 			self._cf.param.set_value("flightmode.althold", "True") 
 		 			
 	    time.sleep(0.1) # perioada de esantionare
-				    
+	    # Question: calculul de mai jos pentru x,y,z trebuie sa fie inainte sau dupa acest sleep?				    
 	    if clock < 1: 
 		# se sare peste primul esantion ca se se poata face diferenta intre timestamp-uri
     	    	t_init = self.timest
@@ -174,8 +178,8 @@ class MotorRampExample:
             	z = z + self.gyro_z*(self.timest - t_init)/1000
 	    
 	    	t_init = self.timest
-
-	    	print [t_init,"---",x, y, z, "baro:",self.baro,"altit:",altit,"thrust:",thrust]	
+		eroare = altit - self.baro
+	    	print [t_init,"---",x, y, z, "baro:",self.baro,"altit:",altit,"err:",eroare,"thrust:",thrust]	
 	    
 	    clock = clock + 1
 	# end while
